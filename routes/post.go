@@ -57,6 +57,7 @@ func CreatePost(c *gin.Context) {
 			"body":  newPost.Body,
 		},
 	})
+	return
 }
 
 func FetchPosts(c *gin.Context) {
@@ -105,7 +106,7 @@ func FetchUserPosts(c *gin.Context) {
 		"status":     "Success",
 		"data":       posts,
 	})
-
+	return
 }
 
 // FetchPost by id
@@ -113,13 +114,13 @@ func FetchPost(c *gin.Context) {
 	id := c.Param("postId")
 	var post []models.Post
 
-	err := database.DB.Find(&post, id).Error
+	err := database.DB.First(&post, id).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": http.StatusInternalServerError,
+		c.JSON(http.StatusNotFound, gin.H{
+			"statusCode": http.StatusNotFound,
 			"status":     "Failed",
-			"message":    "Something went wrong",
+			"message":    "Post not found",
 		})
 		return
 	}
@@ -141,9 +142,19 @@ func DeletePost(c *gin.Context) {
 	var userId = claims["id"].(float64)
 
 	var post []models.Post
-	err := database.DB.Where("user_id = ? AND id = ? ", userId, id).Delete(&post).Error
 
+	err := database.DB.Where("user_id =", userId).First(&post, id).Error
 	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"statusCode": http.StatusNotFound,
+			"status":     "Success",
+			"message":    "Post not found",
+		})
+		return
+	}
+
+	deletePost := database.DB.Delete(&post, id).Error
+	if deletePost != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"statusCode": http.StatusInternalServerError,
 			"status":     "Failed",
@@ -162,8 +173,12 @@ func DeletePost(c *gin.Context) {
 }
 
 func UpdatePost(c *gin.Context) {
+	id := c.Param("postId")
 	var post models.Post
-	if err := c.ShouldBindJSON(&post); err != nil {
+	var updatePost models.UpdatePost
+
+	//validate
+	if err := c.ShouldBindJSON(&updatePost); err != nil {
 		var ve validator.ValidationErrors
 		if errors.As(err, &ve) {
 			out := make([]custom.ErrorMsg, len(ve))
@@ -178,15 +193,21 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	// Ok
-	newPost := models.Post{
-		Title: post.Title,
-		Body:  post.Body,
+	err := database.DB.Where("id = ?", id).First(&post).Error
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"statusCode": http.StatusNotFound,
+			"status":     "Successful",
+			"message":    "Post not found",
+		})
+		return
 	}
 
-	err := database.DB.Save(&newPost).Error
+	post.Title = updatePost.Title
+	post.Body = updatePost.Body
+	result := database.DB.Save(&post).Error
 
-	if err != nil {
+	if result != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"statusCode": http.StatusInternalServerError,
 			"status":     "Failed",
@@ -198,7 +219,11 @@ func UpdatePost(c *gin.Context) {
 		"statusCode": http.StatusCreated,
 		"status":     "Success",
 		"message":    "Post updated successfully",
-		"data":       newPost,
+		"data": gin.H{
+			"title": post.Title,
+			"body":  post.Body,
+			"id":    post.ID,
+		},
 	})
 	return
 }

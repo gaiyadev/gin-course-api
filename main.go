@@ -31,6 +31,7 @@ func main() {
 	}
 	// DB Connection
 	database.DBConnection()
+	database.AutoMigrate()
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8000"

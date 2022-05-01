@@ -50,9 +50,11 @@ func SignUp(c *gin.Context) {
 
 	// Creating new user struct
 	newUser := models.User{
-		Name:     user.Name,
-		Email:    user.Email,
-		Password: hash,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Username:  user.Username,
+		Email:     user.Email,
+		Password:  hash,
 	}
 
 	// Checking if user already exist
@@ -71,7 +73,7 @@ func SignUp(c *gin.Context) {
 		"data": gin.H{
 			"id":    newUser.ID,
 			"email": newUser.Email,
-			"name":  newUser.Name,
+			"name":  newUser.Username,
 		},
 		"message": "Account created successfully",
 	})
@@ -128,9 +130,11 @@ func SignIn(c *gin.Context) {
 	var JwtSecret = []byte(config.Config("JWT_SECRET"))
 
 	claims := &models.Claims{
-		Name:  user.Name,
-		Email: user.Email,
-		ID:    user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Username:  user.Username,
+		Email:     user.Email,
+		ID:        user.ID,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 		},
@@ -232,9 +236,94 @@ func ChangePassword(c *gin.Context) {
 		"status":     "Success",
 		"message":    "Updated successfully",
 		"data": gin.H{
-			"name": user.Name,
-			"id":   user.ID,
+			"username": user.Username,
+			"id":       user.ID,
 		},
+	})
+	return
+}
+
+func UpdateAccount(c *gin.Context) {
+	tokenString := c.GetHeader("Authorization")
+	claims := helpers.ExtractClaims(tokenString)
+	var userId = claims["id"].(float64)
+
+	var user models.User
+	var updateAccount models.UpdateAccount
+
+	//validate
+	if err := c.ShouldBindJSON(&updateAccount); err != nil {
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			out := make([]custom.ErrorMsg, len(ve))
+			for i, fe := range ve {
+				out[i] = custom.ErrorMsg{Field: fe.Field(), Message: custom.GetErrorMsg(fe)}
+			}
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"errors":     out,
+				"statusCode": http.StatusBadRequest,
+			})
+		}
+		return
+	}
+
+	err := database.DB.Where("id = ?", userId).First(&user).Error
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"statusCode": http.StatusNotFound,
+			"status":     "Successful",
+			"message":    "Post not found",
+		})
+		return
+	}
+
+	user.FirstName = updateAccount.FirstName
+	user.LastName = updateAccount.LastName
+	user.Username = updateAccount.Username
+	result := database.DB.Save(&user).Error
+
+	if result != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"statusCode": http.StatusInternalServerError,
+			"status":     "Failed",
+			"message":    "Something went wrong",
+		})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"statusCode": http.StatusCreated,
+		"status":     "Success",
+		"message":    "Updated successfully",
+		"data": gin.H{
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"id":         user.ID,
+		},
+	})
+	return
+}
+
+func FetchUser(c *gin.Context) {
+	tokenString := c.GetHeader("Authorization")
+	claims := helpers.ExtractClaims(tokenString)
+	var userId = claims["id"].(float64)
+	var user models.User
+
+	err := database.DB.Where("id = ?", userId).Preload("Posts").Preload("Categories").First(&user).Error
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"statusCode": http.StatusOK,
+			"status":     "Successful",
+			"message":    "Post not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"statusCode": http.StatusCreated,
+		"status":     "Success",
+		"message":    "Fetched successfully",
+		"data":       user,
 	})
 	return
 }

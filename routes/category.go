@@ -59,7 +59,7 @@ func CreateCategory(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"statusCode": http.StatusCreated,
 		"status":     "Success",
-		"message":    "Post created successfully",
+		"message":    "Created successfully",
 		"data": gin.H{
 			"id":   newCategory.ID,
 			"name": newCategory.Name,
@@ -156,7 +156,7 @@ func DeleteCategory(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"statusCode": http.StatusNotFound,
 			"status":     "Success",
-			"message":    "Post not found",
+			"message":    "Not found",
 		})
 		return
 	}
@@ -225,7 +225,7 @@ func UpdateCategory(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"statusCode": http.StatusCreated,
 		"status":     "Success",
-		"message":    "Post updated successfully",
+		"message":    "updated successfully",
 		"data": gin.H{
 			"name": category.Name,
 			"id":   category.ID,

@@ -35,6 +35,8 @@ func main() {
 		secured.PATCH("categories/:categoryId", routes.UpdateCategory)
 		secured.GET("categories/user", routes.FetchUserCategories)
 		secured.PUT("accounts/changePassword", routes.ChangePassword)
+		secured.PUT("accounts/updateAccount", routes.UpdateAccount)
+		secured.GET("accounts/user", routes.FetchUser)
 	}
 	// DB Connection
 	database.DBConnection()

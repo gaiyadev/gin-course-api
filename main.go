@@ -27,7 +27,14 @@ func main() {
 		secured.DELETE("posts/:postId", routes.DeletePost)
 		secured.PUT("posts/:postId", routes.UpdatePost)
 		secured.GET("posts/user", routes.FetchUserPosts)
-
+		//Category routes
+		secured.POST("categories/", routes.CreateCategory)
+		secured.GET("categories/", routes.FetchCategories)
+		secured.GET("categories/:categoryId", routes.FetchCategory)
+		secured.DELETE("categories/:categoryId", routes.DeleteCategory)
+		secured.PATCH("categories/:categoryId", routes.UpdateCategory)
+		secured.GET("categories/user", routes.FetchUserCategories)
+		secured.PUT("accounts/changePassword", routes.ChangePassword)
 	}
 	// DB Connection
 	database.DBConnection()

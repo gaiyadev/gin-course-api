@@ -18,10 +18,11 @@ func DBConnection() {
 	}
 	fmt.Println("Rest API Connected to database successfully")
 	DB = database
+
 }
 
 func AutoMigrate() {
-	err := DB.AutoMigrate(&models.Post{}, &models.User{})
+	err := DB.AutoMigrate(&models.Post{}, &models.User{}, models.Category{})
 	if err != nil {
 		fmt.Println("Database migration not successful")
 	}

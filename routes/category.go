@@ -11,9 +11,10 @@ import (
 	"net/http"
 )
 
-func CreatePost(c *gin.Context) {
-	var post models.Post
-	if err := c.ShouldBindJSON(&post); err != nil {
+func CreateCategory(c *gin.Context) {
+	var category models.Category
+
+	if err := c.ShouldBindJSON(&category); err != nil {
 		var ve validator.ValidationErrors
 		if errors.As(err, &ve) {
 			out := make([]custom.ErrorMsg, len(ve))
@@ -31,16 +32,23 @@ func CreatePost(c *gin.Context) {
 	claims := helpers.ExtractClaims(tokenString)
 	var userId = claims["id"].(float64)
 
+	err := database.DB.Where("name = ?", category.Name).First(&category).Error
+	if err == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"statusCode": http.StatusNotFound,
+			"status":     "Failed",
+			"message":    "Already exist",
+		})
+		return
+	}
 	// Ok
-	newPost := models.Post{
-		Title:      post.Title,
-		Body:       post.Body,
-		UserID:     userId,
-		CategoryID: post.CategoryID,
+	newCategory := models.Category{
+		Name:   category.Name,
+		UserID: userId,
 	}
 
-	err := database.DB.Create(&newPost).Error
-	if err != nil {
+	ok := database.DB.Create(&newCategory).Error
+	if ok != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"statusCode": http.StatusInternalServerError,
 			"status":     "Failed",
@@ -53,19 +61,17 @@ func CreatePost(c *gin.Context) {
 		"status":     "Success",
 		"message":    "Post created successfully",
 		"data": gin.H{
-			"id":       newPost.ID,
-			"title":    newPost.Title,
-			"body":     newPost.Body,
-			"category": newPost.CategoryID,
+			"id":   newCategory.ID,
+			"name": newCategory.Name,
 		},
 	})
 	return
 }
 
-func FetchPosts(c *gin.Context) {
-	var posts []models.Post
+func FetchCategories(c *gin.Context) {
+	var categories []models.Category
 
-	err := database.DB.Order("id desc, title").Preload("User").Preload("Category").Find(&posts).Error
+	err := database.DB.Order("id desc, name").Preload("User").Find(&categories).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -80,18 +86,18 @@ func FetchPosts(c *gin.Context) {
 		"message":    "Fetched successfully",
 		"statusCode": http.StatusOK,
 		"status":     "Success",
-		"data":       posts,
+		"data":       categories,
 	})
 
 }
 
-func FetchUserPosts(c *gin.Context) {
-	var posts []models.Post
+func FetchUserCategories(c *gin.Context) {
+	var categories []models.Category
 	tokenString := c.GetHeader("Authorization")
 	claims := helpers.ExtractClaims(tokenString)
 	var userId = claims["id"].(float64)
 
-	err := database.DB.Order("id desc, title").Where("user_id = ?", userId).Preload("Category").Find(&posts).Error
+	err := database.DB.Order("id desc, name").Where("user_id = ?", userId).Find(&categories).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -106,17 +112,17 @@ func FetchUserPosts(c *gin.Context) {
 		"message":    "Fetched successfully",
 		"statusCode": http.StatusOK,
 		"status":     "Success",
-		"data":       posts,
+		"data":       categories,
 	})
 	return
 }
 
-// FetchPost by id
-func FetchPost(c *gin.Context) {
-	id := c.Param("postId")
-	var post []models.Post
+// FetchCategory by id
+func FetchCategory(c *gin.Context) {
+	id := c.Param("categoryId")
+	var category []models.Category
 
-	err := database.DB.Preload("User").Preload("Category").Preload("Category").First(&post, id).Error
+	err := database.DB.Preload("User").First(&category, id).Error
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -129,23 +135,23 @@ func FetchPost(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Fetched successfully",
-		"data":       post,
+		"data":       category,
 		"statusCode": http.StatusOK,
 		"status":     "Success",
 	})
 	return
 }
 
-func DeletePost(c *gin.Context) {
-	id := c.Param("postId")
+func DeleteCategory(c *gin.Context) {
+	id := c.Param("categoryId")
 
 	tokenString := c.GetHeader("Authorization")
 	claims := helpers.ExtractClaims(tokenString)
 	var userId = claims["id"].(float64)
 
-	var post []models.Post
+	var category []models.Category
 
-	err := database.DB.Where("user_id = ?", userId).First(&post, id).Error
+	err := database.DB.Where("user_id = ?", userId).First(&category, id).Error
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"statusCode": http.StatusNotFound,
@@ -155,7 +161,7 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	deletePost := database.DB.Delete(&post, id).Error
+	deletePost := database.DB.Delete(&category, id).Error
 	if deletePost != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"statusCode": http.StatusInternalServerError,
@@ -167,20 +173,20 @@ func DeletePost(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Deleted successfully",
-		"data":       post,
+		"data":       category,
 		"statusCode": http.StatusOK,
 		"status":     "Success",
 	})
 	return
 }
 
-func UpdatePost(c *gin.Context) {
-	id := c.Param("postId")
-	var post models.Post
-	var updatePost models.UpdatePost
+func UpdateCategory(c *gin.Context) {
+	id := c.Param("categoryId")
+	var category models.Category
+	var updateCategory models.UpdateCategory
 
 	//validate
-	if err := c.ShouldBindJSON(&updatePost); err != nil {
+	if err := c.ShouldBindJSON(&updateCategory); err != nil {
 		var ve validator.ValidationErrors
 		if errors.As(err, &ve) {
 			out := make([]custom.ErrorMsg, len(ve))
@@ -195,7 +201,7 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	err := database.DB.Where("id = ?", id).First(&post).Error
+	err := database.DB.Where("id = ?", id).First(&category).Error
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"statusCode": http.StatusNotFound,
@@ -205,9 +211,8 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	post.Title = updatePost.Title
-	post.Body = updatePost.Body
-	result := database.DB.Save(&post).Error
+	category.Name = updateCategory.Name
+	result := database.DB.Save(&category).Error
 
 	if result != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -222,9 +227,8 @@ func UpdatePost(c *gin.Context) {
 		"status":     "Success",
 		"message":    "Post updated successfully",
 		"data": gin.H{
-			"title": post.Title,
-			"body":  post.Body,
-			"id":    post.ID,
+			"name": category.Name,
+			"id":   category.ID,
 		},
 	})
 	return

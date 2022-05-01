@@ -22,6 +22,6 @@ func GetErrorMsg(fe validator.FieldError) string {
 	case "email":
 		return "This field must be a valid E-mail address"
 	default:
-		return "Unknown error"
+		return "Unknown error caught"
 	}
 }

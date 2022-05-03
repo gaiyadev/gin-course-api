@@ -8,8 +8,34 @@ import (
 	"gin-course/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"gorm.io/gorm"
 	"net/http"
+	"strconv"
 )
+
+
+func Paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
+	return func (db *gorm.DB) *gorm.DB {
+		q := r.URL.Query()
+		page, _ := strconv.Atoi(q.Get("page"))
+		if page == 0 {
+			page = 1
+		}
+
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		switch {
+		case limit > 100:
+			limit = 100
+		case limit <= 0:
+			limit = 10
+		}
+
+		offset := (page - 1) * limit
+		return db.Offset(offset).Limit(limit)
+	}
+}
+
+
 
 func CreatePost(c *gin.Context) {
 	var post models.Post
@@ -64,8 +90,10 @@ func CreatePost(c *gin.Context) {
 
 func FetchPosts(c *gin.Context) {
 	var posts []models.Post
+	page := c.Query("page")
+	limit := c.Query("limit")
 
-	err := database.DB.Order("id desc, title").Preload("User").Preload("Category").Find(&posts).Error
+	err := database.DB.Order("id desc, title").Preload("User").Preload("Category").Scopes(Paginate(c.Request)).Find(&posts).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -81,17 +109,24 @@ func FetchPosts(c *gin.Context) {
 		"statusCode": http.StatusOK,
 		"status":     "Success",
 		"data":       posts,
+		"meta": gin.H{
+			"page":  page,
+			"limit": limit,
+		},
 	})
 
 }
 
 func FetchUserPosts(c *gin.Context) {
 	var posts []models.Post
+
 	tokenString := c.GetHeader("Authorization")
 	claims := helpers.ExtractClaims(tokenString)
 	var userId = claims["id"].(float64)
+	page := c.Query("page")
+	limit := c.Query("limit")
 
-	err := database.DB.Order("id desc, title").Where("user_id = ?", userId).Preload("Category").Find(&posts).Error
+	err := database.DB .Order("id desc, title").Where("user_id = ?", userId).Preload("Category").Scopes(Paginate(c.Request)).Find(&posts).Error
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -107,6 +142,10 @@ func FetchUserPosts(c *gin.Context) {
 		"statusCode": http.StatusOK,
 		"status":     "Success",
 		"data":       posts,
+		"meta": gin.H{
+			"page":  page,
+			"limit": limit,
+		},
 	})
 	return
 }
